@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 import { actions } from "../store.js";
-import ContactCard from "../components/ContactCard.jsx";
 
-
-export const Home = () => {
+export const EditContact = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const { store, dispatch } = useGlobalReducer();
   const act = actions(dispatch, () => store);
 
-  // Estado del formulario de nuevo contacto
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -16,12 +16,18 @@ export const Home = () => {
     address: "",
   });
 
-  // Cargar contactos al iniciar si hay agenda
+  // Buscar el contacto actual
   useEffect(() => {
-    if (store.agenda_slug) {
-      act.getContacts(store.agenda_slug);
+    const current = store.contacts.find((c) => c.id === parseInt(id));
+    if (current) {
+      setForm(current);
+    } else {
+      // si no hay contactos cargados, intentamos traerlos
+      if (store.agenda_slug) {
+        act.getContacts(store.agenda_slug);
+      }
     }
-  }, [store.agenda_slug]);
+  }, [id, store.contacts]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -29,22 +35,18 @@ export const Home = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!store.agenda_slug) {
-      alert("Primero selecciona o crea una agenda.");
-      return;
-    }
-    await act.addContact(store.agenda_slug, form);
-    setForm({ name: "", email: "", phone: "", address: "" });
+    await act.updateContact(store.agenda_slug, id, form);
+    navigate("/home"); // volver a Home después de guardar
   };
 
   return (
     <div className="container mt-4">
-      <h2 className="mb-4">Agenda: {store.agenda_slug}</h2>
+      <h2>Editar contacto</h2>
 
-      {/* Formulario para agregar contacto */}
-      <div className="card p-3 mb-4 shadow-sm">
-        <h5 className="mb-3">Agregar nuevo contacto</h5>
-        <form onSubmit={handleSubmit}>
+      {form.name === "" && form.email === "" ? (
+        <p>Cargando datos del contacto...</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="card p-3 shadow-sm">
           <input
             type="text"
             name="name"
@@ -80,26 +82,14 @@ export const Home = () => {
             value={form.address}
             onChange={handleChange}
           />
-          <button type="submit" className="btn btn-success w-100">
-            Guardar contacto
+          <button type="submit" className="btn btn-primary">
+            Guardar cambios
           </button>
+          <Link to="/home" className="btn btn-secondary ms-2">
+            Cancelar
+          </Link>
         </form>
-      </div>
-
-      {/* Lista de contactos */}
-      <div>
-        {store.contacts.length > 0 ? (
-          store.contacts.map((c) => (
-            <ContactCard
-              key={c.id}
-              contact={c}
-              onDelete={(id) => act.deleteContact(store.agenda_slug, id)}
-            />
-          ))
-        ) : (
-          <p>No hay contactos todavía.</p>
-        )}
-      </div>
+      )}
     </div>
   );
 };
